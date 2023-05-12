@@ -138,17 +138,17 @@ class GPTNEOXLayerPolicy(TransformerPolicy):
                self.client_module.input_layernorm.bias
 
     def get_lora_params(self):
-        if GPTNEOXLayerPolicy.version == 0:
-            attention = self.client_module.attention
-        else:
-            attention = self.client_module.self_attention
-
-        all_lora_params = []
-        for p in [
-            self.client_module.mlp.dense_h_to_4h, \
-            self.client_module.mlp.dense_4h_to_h, \
-            attention.query_key_value, \
-            attention.dense
-            ]:
-            all_lora_params.append(maybe_get_lora(p))
-        return all_lora_params
+        attention = (
+            self.client_module.attention
+            if GPTNEOXLayerPolicy.version == 0
+            else self.client_module.self_attention
+        )
+        return [
+            maybe_get_lora(p)
+            for p in [
+                self.client_module.mlp.dense_h_to_4h,
+                self.client_module.mlp.dense_4h_to_h,
+                attention.query_key_value,
+                attention.dense,
+            ]
+        ]

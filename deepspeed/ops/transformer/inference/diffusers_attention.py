@@ -41,7 +41,7 @@ class DeepSpeedDiffusersAttentionFunction(Function):
         def _transpose_for_context(x):
             x = x.permute(0, 2, 1, 3)
             new_x_layer_shape = x.size()[:-2] + \
-                                      (hidden_size_per_partition,)
+                                          (hidden_size_per_partition,)
             return x.reshape(*new_x_layer_shape)
 
         def _transpose_for_scores(x):
@@ -57,7 +57,7 @@ class DeepSpeedDiffusersAttentionFunction(Function):
             head_size = input.shape[-1] // config.heads
             do_flash_attn = (head_size <= 128)
             scale = (1 / norm_factor) * (1 / norm_factor)
-            if do_flash_attn and context == None:
+            if do_flash_attn and context is None:
                 qkv_out = linear_func(input, attn_qkvw, attn_qkvb if attn_qkvb is not None else attn_qkvw, attn_qkvb
                                       is not None, do_flash_attn, config.heads, False)
 
@@ -187,11 +187,23 @@ class DeepSpeedDiffusersAttention(nn.Module):
                                     input.size()[1],
                                     input.size()[0], DeepSpeedDiffusersAttention.layer_id, self.config.mp_size, False,
                                     0, self.config.max_out_tokens, self.config.min_out_tokens)
-        output = DeepSpeedDiffusersAttentionFunction.apply(input, context, input_mask, self.config, self.attn_qkvw,
-                                                           self.attn_qw, self.attn_kw, self.attn_vw, self.attn_qkvb,
-                                                           self.num_attention_heads_per_partition, self.norm_factor,
-                                                           self.hidden_size_per_partition, self.attn_ow, self.attn_ob,
-                                                           self.do_out_bias, self.score_context_func, self.linear_func,
-                                                           self.triton_flash_attn_kernel)
-
-        return output
+        return DeepSpeedDiffusersAttentionFunction.apply(
+            input,
+            context,
+            input_mask,
+            self.config,
+            self.attn_qkvw,
+            self.attn_qw,
+            self.attn_kw,
+            self.attn_vw,
+            self.attn_qkvb,
+            self.num_attention_heads_per_partition,
+            self.norm_factor,
+            self.hidden_size_per_partition,
+            self.attn_ow,
+            self.attn_ob,
+            self.do_out_bias,
+            self.score_context_func,
+            self.linear_func,
+            self.triton_flash_attn_kernel,
+        )

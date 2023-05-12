@@ -125,11 +125,13 @@ class BaseTransformerContainer(ABC):
         if self.dtype in [torch.half, torch.bfloat16]:
             for k, v in self.__dict__.items():
                 # The list comprehension is used for MoE tensor lists
-                if isinstance(v, list) and all((isinstance(tensor, torch.Tensor) \
-                   or isinstance(tensor, torch.nn.Parameter)) for tensor in v):
+                if isinstance(v, list) and all(
+                    isinstance(tensor, (torch.Tensor, torch.nn.Parameter))
+                    for tensor in v
+                ):
                     self.__dict__[k] = [moe_tensor.to(self.dtype) for moe_tensor in v]
 
-                if isinstance(v, torch.Tensor) or isinstance(v, torch.nn.Parameter):
+                if isinstance(v, (torch.Tensor, torch.nn.Parameter)):
                     self.__dict__[k] = v.to(self.dtype)
 
     def get_rotary_dim(self):

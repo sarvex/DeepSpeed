@@ -14,10 +14,7 @@ import torch
 
 def is_torch_two():
     TORCH_MAJOR = int(torch.__version__.split('.')[0])
-    if TORCH_MAJOR >= 2:
-        return True
-    else:
-        return False
+    return TORCH_MAJOR >= 2
 
 
 def has_coalescing_manager():
@@ -60,7 +57,7 @@ class TorchBackend(Backend):
         self.init_process_group(backend, timeout, init_method, rank, world_size)
 
     @classmethod
-    def get_all_gather_function(self):
+    def get_all_gather_function(cls):
         if hasattr(torch.distributed, "all_gather_into_tensor"):
             return torch.distributed.all_gather_into_tensor
         elif hasattr(torch.distributed, "_all_gather_base"):
@@ -68,7 +65,7 @@ class TorchBackend(Backend):
         return None
 
     @classmethod
-    def get_reduce_scatter_function(self):
+    def get_reduce_scatter_function(cls):
         if hasattr(torch.distributed, "reduce_scatter_tensor"):
             return torch.distributed.reduce_scatter_tensor
         elif hasattr(torch.distributed, "_reduce_scatter_base"):
@@ -130,7 +127,6 @@ class TorchBackend(Backend):
             utils.logger.warning("unable to find torch.distributed._all_gather_base. will fall back to "
                                  "torch.distributed.all_gather which will result in suboptimal performance. "
                                  "please consider upgrading your pytorch installation.")
-            pass
 
     def all_gather_coalesced(self, output_tensors, input_tensors, group=None, async_op=False):
         """"""
@@ -166,7 +162,6 @@ class TorchBackend(Backend):
             utils.logger.warning("unable to find torch.distributed.reduce_scatter_tensor. will fall back to "
                                  "torch.distributed.reduce_scatter which will result in suboptimal performance. "
                                  "please consider upgrading your pytorch installation.")
-            pass
 
     def all_to_all_single(self,
                           output,

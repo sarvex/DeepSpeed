@@ -31,10 +31,7 @@ import gc
 class ReplaceWithTensorSlicing:
 
     def __init__(self, mp_group=None, mp_size=1, out_dim=1, in_dim=0):
-        if mp_group is not None:
-            self.gpu_index = dist.get_rank(group=mp_group)
-        else:
-            self.gpu_index = 0
+        self.gpu_index = dist.get_rank(group=mp_group) if mp_group is not None else 0
         self.out_dim = out_dim
         self.in_dim = in_dim
         self.mp_size = mp_size
@@ -96,28 +93,26 @@ class ReplaceWithTensorSlicing:
         assert not dst.data.is_meta  # the torch.Tensor.copy_ method used below will silently fail on meta tensors
         if allocate_tensor:
             dst = torch.empty_like(dst)
-        outer_dim = 0 if int8 else 1
-        inner_dim = 1 if int8 else 0
         src_shape = src.shape
         dst_shape = dst.shape
         if (len(src_shape) == 2 and len(dst_shape) == 2):
 
+            outer_dim = 0 if int8 else 1
+            inner_dim = 1 if int8 else 0
             if src_shape[inner_dim] == dst_shape[self.in_dim] and src_shape[outer_dim] == dst_shape[self.out_dim]:
                 dst = dst.reshape(-1).data.copy_(src.data.reshape(-1)).reshape(src.shape)
-            else:
-                if src_shape[inner_dim] != dst_shape[self.in_dim]:
-                    self.merge_assert(src_shape[inner_dim], dst_shape[self.in_dim])
-                    dst.data.copy_(src[:, self.gpu_index * dst_shape[self.in_dim]: (self.gpu_index + 1) * dst_shape[self.in_dim]] if inner_dim == 1 else \
-                                   src[self.gpu_index * dst_shape[self.in_dim]: (self.gpu_index + 1) * dst_shape[self.in_dim], :])
-                else:
-                    self.merge_assert(src_shape[outer_dim], dst_shape[self.out_dim])
-                    dst.data.copy_(src[:, self.gpu_index * dst_shape[self.out_dim]: (self.gpu_index + 1) * dst_shape[self.out_dim]] if outer_dim == 1 else \
+            elif src_shape[inner_dim] == dst_shape[self.in_dim]:
+                self.merge_assert(src_shape[outer_dim], dst_shape[self.out_dim])
+                dst.data.copy_(src[:, self.gpu_index * dst_shape[self.out_dim]: (self.gpu_index + 1) * dst_shape[self.out_dim]] if outer_dim == 1 else \
                                    src[self.gpu_index * dst_shape[self.out_dim]: (self.gpu_index + 1) * dst_shape[self.out_dim], :])
-        else:
-            if src_shape[0] == dst_shape[0]:
-                dst = src
             else:
-                dst.data.copy_(src[self.gpu_index * dst_shape[-1]:(self.gpu_index + 1) * dst_shape[-1]])
+                self.merge_assert(src_shape[inner_dim], dst_shape[self.in_dim])
+                dst.data.copy_(src[:, self.gpu_index * dst_shape[self.in_dim]: (self.gpu_index + 1) * dst_shape[self.in_dim]] if inner_dim == 1 else \
+                                   src[self.gpu_index * dst_shape[self.in_dim]: (self.gpu_index + 1) * dst_shape[self.in_dim], :])
+        elif src_shape[0] == dst_shape[0]:
+            dst = src
+        else:
+            dst.data.copy_(src[self.gpu_index * dst_shape[-1]:(self.gpu_index + 1) * dst_shape[-1]])
         dst = torch.nn.parameter.Parameter(dst, requires_grad=False)
         if hasattr(src, 'scale'):
             dst.scale = src.scale
@@ -131,7 +126,7 @@ def get_transformer_name(replaced_module):
     transformer_name = ''
     for n, c in replaced_module.named_children():
         if c.__class__ in supported_models:
-            transformer_name += n + '.'
+            transformer_name += f'{n}.'
             for name, child in c.named_children():
                 if child.__class__ is ModuleList:
                     transformer_name += name
@@ -228,9 +223,7 @@ def generic_injection(module, fp16=False, enable_cuda_graph=True):
         config = Diffusers2DTransformerConfig()
         return DeepSpeedDiffusersTransformerBlock(child, config)
 
-    if isinstance(module, torch.nn.Module):
-        pass
-    else:
+    if not isinstance(module, torch.nn.Module):
         if fp16 is False:
             raise ValueError("Generic injection only supported with FP16")
 

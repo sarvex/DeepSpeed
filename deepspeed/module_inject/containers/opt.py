@@ -113,8 +113,9 @@ class HFOPTLayerPolicy(TransformerPolicy):
             elif TransformerPolicy.hf_model_config.activation_function in ["gelu", "gelu_new"]:
                 self.mlp_act_func_type = ActivationFuncType.GELU
             else:
-                raise ValueError("Unsupported activation function: {}".format(
-                    TransformerPolicy.hf_model_config.activation_function))
+                raise ValueError(
+                    f"Unsupported activation function: {TransformerPolicy.hf_model_config.activation_function}"
+                )
         else:
             self.mlp_act_func_type = ActivationFuncType.ReLU  # default
 

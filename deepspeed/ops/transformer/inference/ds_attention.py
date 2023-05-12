@@ -88,7 +88,7 @@ class DeepSpeedSelfAttention(nn.Module):
             ]
 
     def compute_attention(self, qkv_out, input_mask, layer_past, alibi):
-        if isinstance(qkv_out, list) or isinstance(qkv_out, tuple):
+        if isinstance(qkv_out, (list, tuple)):
             qkv_out = qkv_out[0]
 
         no_masking = input_mask is None
@@ -197,7 +197,7 @@ class BloomSelfAttention(DeepSpeedSelfAttention):
         # Get the size and dimension.
         last_dim = tensor.dim() - 1
         numerator, denominator = tensor.size()[last_dim], num_partitions
-        if not (numerator % denominator == 0):
+        if numerator % denominator != 0:
             raise ValueError(f"{numerator} is not divisible by {denominator}")
         last_dim_size = numerator // denominator
         # Split.
@@ -209,7 +209,7 @@ class BloomSelfAttention(DeepSpeedSelfAttention):
         return tensor_list
 
     def compute_attention(self, qkv_out, input_mask, layer_past, alibi):
-        if isinstance(qkv_out, list) or isinstance(qkv_out, tuple):
+        if isinstance(qkv_out, (list, tuple)):
             qkv_out = qkv_out[0]
 
         no_masking = input_mask is None
